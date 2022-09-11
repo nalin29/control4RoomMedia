@@ -6,8 +6,8 @@ from datetime import timedelta
 import logging
 from typing import Any
 
-from pyControl42.error_handling import C4Exception
-from pyControl42.light import C4Light
+from .pyControl42.error_handling import C4Exception
+from .pyControl42.light import C4Light
 
 from homeassistant.components.light import (
     ATTR_BRIGHTNESS,

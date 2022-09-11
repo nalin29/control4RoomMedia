@@ -5,9 +5,9 @@ import json
 import logging
 
 from aiohttp import client_exceptions
-from pyControl42.account import C4Account
-from pyControl42.director import C4Director
-from pyControl42.error_handling import BadCredentials
+from .pyControl42.account import C4Account
+from .pyControl42.director import C4Director
+from .pyControl42.error_handling import BadCredentials
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
