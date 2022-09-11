@@ -9,8 +9,8 @@
       "st": "c4:director"
     }
   ],
-  "codeowners": ["@lawtancool"],
+  "codeowners": ["@nalin29"],
   "iot_class": "local_polling",
-  "version": "1.1.7",
+  "version": "1.1.8",
   "loggers": ["pyControl4"]
 }
