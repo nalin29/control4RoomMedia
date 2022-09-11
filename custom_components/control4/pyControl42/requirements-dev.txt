@@ -1,0 +1,4 @@
+﻿aiohttp
+xmltodict
+python-socketio>=4,<5
+pdoc3
