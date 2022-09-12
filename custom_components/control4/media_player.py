@@ -208,6 +208,7 @@ class Control4MediaPlayer(Control4Entity, MediaPlayerEntity):
    
    async def async_turn_on(self):
       c4_room = self.create_api_object()
+      await c4_room.setVolume(30)
       await c4_room.setAudioSource(937)
       _LOGGER.debug("Turning on Room: %s", self.name)
       await self.coordinator.async_request_refresh()
