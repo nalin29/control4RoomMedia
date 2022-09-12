@@ -3,9 +3,9 @@ import logging
 import json
 from pkgutil import iter_modules
 
-from .pyControl42.account import C4Account
-from .pyControl42.director import C4Director
-from .pyControl42.error_handling import BadToken
+from pyC4Room.account import C4Account
+from pyC4Room.director import C4Director
+from pyC4Room.error_handling import BadToken
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_TOKEN, CONF_USERNAME

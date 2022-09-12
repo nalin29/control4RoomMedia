@@ -9,8 +9,8 @@ from re import M
 from typing import Any
 import json
 
-from .pyControl42.error_handling import C4Exception
-from .pyControl42.room import C4Room
+from pyC4Room.error_handling import C4Exception
+from pyC4Room.room import C4Room
 
 from homeassistant.components.media_player import (
    MediaPlayerEntity,

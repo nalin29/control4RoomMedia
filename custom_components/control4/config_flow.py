@@ -5,9 +5,9 @@ from asyncio import TimeoutError as asyncioTimeoutError
 import logging
 
 from aiohttp.client_exceptions import ClientError
-from .pyControl42.account import C4Account
-from .pyControl42.director import C4Director
-from .pyControl42.error_handling import NotFound, Unauthorized
+from pyC4Room.account import C4Account
+from pyC4Room.director import C4Director
+from pyC4Room.error_handling import NotFound, Unauthorized
 import voluptuous as vol
 
 from homeassistant import config_entries, exceptions
