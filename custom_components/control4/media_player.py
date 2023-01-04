@@ -14,31 +14,12 @@ from pyC4Room.room import C4Room
 
 from homeassistant.components.media_player import (
    MediaPlayerEntity,
-   SUPPORT_PLAY,
-   SUPPORT_PAUSE,
-   SUPPORT_SELECT_SOURCE,
-   SUPPORT_STOP,
-   SUPPORT_VOLUME_STEP,
-   SUPPORT_VOLUME_MUTE,
-   SUPPORT_VOLUME_SET,
-   SUPPORT_TURN_OFF,
-   SUPPORT_TURN_ON,
    MediaPlayerDeviceClass,
-   STATE_OFF,
-   STATE_IDLE,
-   STATE_PLAYING
+   MediaClass,
+   MediaType,
+   MediaPlayerState,
+   MediaPlayerEntityFeature
 )
-
-SUPPORT_FLAGS = [ SUPPORT_PLAY,
-                  SUPPORT_PAUSE,
-                  SUPPORT_SELECT_SOURCE,
-                  SUPPORT_STOP,
-                  SUPPORT_VOLUME_STEP,
-                  SUPPORT_VOLUME_MUTE,
-                  SUPPORT_VOLUME_SET,
-                  SUPPORT_TURN_OFF,
-                  SUPPORT_TURN_ON
-               ]
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_SCAN_INTERVAL
@@ -155,20 +136,24 @@ class Control4MediaPlayer(Control4Entity, MediaPlayerEntity):
    @property
    def device_class(self) -> MediaPlayerDeviceClass | str | None:
       return MediaPlayerDeviceClass.SPEAKER
+   
+   @property
+   def media_content_type(self):
+      return MediaType.MUSIC
 
    @property
    def supported_features(self) -> int:
       """Flag supported features."""
-      return  SUPPORT_SELECT_SOURCE | SUPPORT_VOLUME_STEP | SUPPORT_VOLUME_MUTE | SUPPORT_VOLUME_SET | SUPPORT_TURN_OFF | SUPPORT_TURN_ON
+      return  MediaPlayerEntityFeature.SELECT_SOURCE | MediaPlayerEntityFeature.VOLUME_STEP | MediaPlayerEntityFeature.VOLUME_MUTE | MediaPlayerEntityFeature.VOLUME_SET | MediaPlayerEntityFeature.TURN_OFF | MediaPlayerEntityFeature.TURN_ON
    
    @property
    def state(self) -> str:
       if "POWER_STATE" in self.coordinator.data[self._idx]:
          if self.coordinator.data[self._idx]["POWER_STATE"] > 0:
-            return STATE_PLAYING
+            return MediaPlayerState.PLAYING
          else:
-            return STATE_OFF
-      return STATE_OFF
+            return MediaPlayerState.OFF
+      return MediaPlayerState.OFF
    
    @property
    def volume_level(self) -> float | None:
