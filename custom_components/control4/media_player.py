@@ -40,6 +40,7 @@ CONTROL4_MUTED_STATE = "IS_MUTED"
 CONTROL4_CURRENT_AUDIO_DEVICE = "CURRENT_AUDIO_DEVICE"
 CONTROL4_CURRENT_VIDEO_DEVICE = "CURRENT_VIDEO_DEVICE"
 CONTROL4_CURRENT_SELECTED_DEVICE = "CURRENT_SELECTED_DEVICE"
+CONTROL4_PLAYING_AUDIO_DEVICE = "PLAYING_AUDIO_DEVICE"
 CONTROL4_PLAYING = "PLAYING"
 CONTROL4_PAUSED = "PAUSED"
 CONTROL4_STOPPED = "STOPPED"
@@ -235,7 +236,7 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         return current_device
 
     def _get_current_playing_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_SELECTED_DEVICE)
+        return self._get_device_from_variable(CONTROL4_PLAYING_AUDIO_DEVICE)
 
     def _get_current_audio_device_id(self) -> int | None:
         return self._get_device_from_variable(CONTROL4_CURRENT_AUDIO_DEVICE)
