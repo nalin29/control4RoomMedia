@@ -5,9 +5,9 @@ import json
 import logging
 
 from aiohttp import client_exceptions
-from pyC4Room.account import C4Account
-from pyC4Room.director import C4Director
-from pyC4Room.error_handling import BadCredentials
+from pyControl4.account import C4Account
+from pyControl4.director import C4Director
+from pyControl4.error_handling import BadCredentials
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import (
@@ -36,6 +36,7 @@ from .const import (
     CONF_DIRECTOR_MODEL,
     CONF_DIRECTOR_SW_VERSION,
     CONF_DIRECTOR_TOKEN_EXPIRATION,
+    CONF_UI_CONFIGURATION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
 )
@@ -47,7 +48,6 @@ PLATFORMS = [Platform.LIGHT, Platform.MEDIA_PLAYER]
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Set up Control4 from a config entry."""
-    _LOGGER.debug("Running Custom C4")
     hass.data.setdefault(DOMAIN, {})
     entry_data = hass.data[DOMAIN].setdefault(entry.entry_id, {})
     account_session = aiohttp_client.async_get_clientsession(hass)
@@ -61,7 +61,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         raise ConfigEntryNotReady from exception
     except BadCredentials as exception:
         _LOGGER.error(
-            "Error authenticating with Control4 account API, incorrect username or password: %s",
+            (
+                "Error authenticating with Control4 account API, incorrect username or"
+                " password: %s"
+            ),
             exception,
         )
         return False
@@ -77,7 +80,9 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config[CONF_HOST], director_token_dict[CONF_TOKEN], director_session
     )
     entry_data[CONF_DIRECTOR] = director
-    #entry_data[CONF_DIRECTOR_TOKEN_EXPIRATION] = director_token_dict["token_expiration"]
+    entry_data[CONF_DIRECTOR_TOKEN_EXPIRATION] = director_token_dict[
+        CONF_DIRECTOR_TOKEN_EXPIRATION
+    ]
 
     # Add Control4 controller to device registry
     controller_href = (await account.getAccountControllers())["href"]
@@ -103,6 +108,8 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     director_all_items = await director.getAllItemInfo()
     director_all_items = json.loads(director_all_items)
     entry_data[CONF_DIRECTOR_ALL_ITEMS] = director_all_items
+
+    entry_data[CONF_UI_CONFIGURATION] = json.loads(await director.getUiConfiguration())
 
     # Load options from config entry
     entry_data[CONF_SCAN_INTERVAL] = entry.options.get(
@@ -163,7 +170,7 @@ class Control4Entity(CoordinatorEntity):
         self.entry_data = entry_data
         self._attr_name = name
         self._attr_unique_id = str(idx)
-        self._idx = idx
+        self._idx = int(idx)
         self._controller_unique_id = entry_data[CONF_CONTROLLER_UNIQUE_ID]
         self._device_name = device_name
         self._device_manufacturer = device_manufacturer
