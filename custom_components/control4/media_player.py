@@ -9,21 +9,16 @@ import attr
 from pyControl4.error_handling import C4Exception
 from pyControl4.room import C4Room
 
-from homeassistant.components.media_player import MediaPlayerEntity
-from homeassistant.components.media_player.const import (
-    MEDIA_TYPE_MOVIE,
-    MEDIA_TYPE_MUSIC,
+from homeassistant.components.media_player import ( 
+    MediaPlayerEntity,
+    MediaPlayerState,
     MediaPlayerEntityFeature,
+    MediaPlayerDeviceClass,
+    MediaType
 )
+
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.const import (
-    CONF_SCAN_INTERVAL,
-    STATE_IDLE,
-    STATE_OFF,
-    STATE_ON,
-    STATE_PAUSED,
-    STATE_PLAYING,
-)
+from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, UpdateFailed
@@ -251,11 +246,11 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
             current_data = self.coordinator.data.get(current_source, None)
             if current_data:
                 if current_data.get(CONTROL4_PLAYING, None):
-                    return STATE_PLAYING
+                    return MediaPlayerState.PLAYING
                 if current_data.get(CONTROL4_PAUSED, None):
-                    return STATE_PAUSED
+                    return MediaPlayerState.PAUSED
                 if current_data.get(CONTROL4_STOPPED, None):
-                    return STATE_ON
+                    return MediaPlayerState.ON
             current_source = self._id_to_parent.get(current_source, None)
         return None
 
@@ -267,12 +262,12 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
             return source_state
 
         if self.coordinator.data[self._idx][CONTROL4_POWER_STATE]:
-            return STATE_ON
+            return MediaPlayerState.ON
 
         if self._is_soft_on:
-            return STATE_IDLE
+            return MediaPlayerState.IDLE
 
-        return STATE_OFF
+        return MediaPlayerState.OFF
 
     @property
     def source(self):
@@ -289,8 +284,8 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         if not current_source:
             return None
         if current_source == self._get_current_video_device_id():
-            return MEDIA_TYPE_MOVIE
-        return MEDIA_TYPE_MUSIC
+            return MediaType.MOVIE
+        return MediaType.MUSIC
 
     async def async_media_play_pause(self):
         """
@@ -371,4 +366,9 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
     async def async_media_play(self):
         """Issue a play command."""
         await self._create_api_object().setPlay()
+        await self.coordinator.async_request_refresh()
+    
+    async def async_media_stop(self):
+        """Issue a stop command."""
+        await self._create_api_object().setStop()
         await self.coordinator.async_request_refresh()
