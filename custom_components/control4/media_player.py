@@ -277,6 +277,14 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         if not current_source or current_source not in self._sources:
             return None
         return self._sources[current_source].name
+    
+    @property
+    def media_title(self) -> str | None:
+        """Get the Media Title."""
+        current_source = self._get_current_playing_device_id()
+        if not current_source or current_source not in self._sources:
+            return None
+        return self._sources[current_source].name
 
     @property
     def media_content_type(self):
