@@ -1,11 +1,11 @@
 """Provides data updates from the Control4 controller for platforms."""
+from collections import defaultdict
 import logging
-import json
-from pkgutil import iter_modules
+from typing import DefaultDict, Sequence, Union
 
-from pyC4Room.account import C4Account
-from pyC4Room.director import C4Director
-from pyC4Room.error_handling import BadToken
+from pyControl4.account import C4Account
+from pyControl4.director import C4Director
+from pyControl4.error_handling import BadToken
 
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_HOST, CONF_PASSWORD, CONF_TOKEN, CONF_USERNAME
@@ -24,7 +24,7 @@ _LOGGER = logging.getLogger(__name__)
 
 
 async def director_update_data(
-    hass: HomeAssistant, entry: ConfigEntry, var: str | list
+    hass: HomeAssistant, entry: ConfigEntry, var: str
 ) -> dict:
     """Retrieve data from the Control4 director for update_coordinator."""
     # possibly implement usage of director_token_expiration to start
@@ -39,62 +39,34 @@ async def director_update_data(
         data = await director.getAllItemVariableValue(var)
     return {key["id"]: key for key in data}
 
-async def director_update_data_mult(
-    hass: HomeAssistant, entry: ConfigEntry, var: str | list
-) -> dict:
+
+async def update_variables_for_entity(
+    hass: HomeAssistant, entry: ConfigEntry, variable_names: Sequence[str]
+) -> dict[int, dict[str, Union[bool, int, str, dict]]]:
     """Retrieve data from the Control4 director for update_coordinator."""
     # possibly implement usage of director_token_expiration to start
     # token refresh without waiting for error to occur
     try:
         director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getAllItemVariableValue(var)
+        data = await director.getAllItemVariableValue(variable_names)
+        result_dict: DefaultDict[
+            int, dict[str, Union[bool, int, str, dict]]
+        ] = defaultdict(dict)
+        for item in data:
+            typ = item.get("type", None)
+            value = item["value"]
+            if typ == "Boolean":
+                value = bool(int(value))
+            elif typ == "Number":
+                value = float(value)
+
+            result_dict[int(item["id"])][item["varName"]] = value
+        return dict(result_dict)
     except BadToken:
         _LOGGER.info("Updating Control4 director token")
         await refresh_tokens(hass, entry)
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getAllItemVariableValue(var)
-    res = {}
-    for item in data:
-        id = item['id']
-        if id not in res:
-            res[id] = {}
-        varname = item['varName']
-        value = item['value']
-        res[id][varname] = value
-    return res
+        return await update_variables_for_entity(hass, entry, variable_names)
 
-
-async def director_get_entry_variables(
-    hass: HomeAssistant, entry: ConfigEntry, item_id: int
-) -> dict:
-    try:
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getItemVariables(item_id)
-    except BadToken:
-        _LOGGER.info("Updating Control4 director token")
-        await refresh_tokens(hass, entry)
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getItemVariables(item_id)
-
-    result = {}
-    for item in json.loads(data):
-        result[item["varName"]] = item["value"]
-
-    return result
-
-async def director_get_all_items( hass: HomeAssistant, entry: ConfigEntry) -> dict:
-    try:
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getAllItemInfo()
-    except BadToken:
-        _LOGGER.info("Updating Control4 director token")
-        await refresh_tokens(hass, entry)
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getAllItemInfo()
-    result = {}
-    for item in json.loads(data):
-        result[item['id']] = item
-    return result
 
 async def refresh_tokens(hass: HomeAssistant, entry: ConfigEntry):
     """Store updated authentication and director tokens in hass.data."""
@@ -111,10 +83,10 @@ async def refresh_tokens(hass: HomeAssistant, entry: ConfigEntry):
     director = C4Director(
         config[CONF_HOST], director_token_dict[CONF_TOKEN], director_session
     )
-    #director_token_expiry = director_token_dict["token_expiration"]
+    director_token_expiry = director_token_dict[CONF_DIRECTOR_TOKEN_EXPIRATION]
 
     _LOGGER.debug("Saving new tokens in hass data")
     entry_data = hass.data[DOMAIN][entry.entry_id]
     entry_data[CONF_ACCOUNT] = account
     entry_data[CONF_DIRECTOR] = director
-    #entry_data[CONF_DIRECTOR_TOKEN_EXPIRATION] = director_token_expiry
+    entry_data[CONF_DIRECTOR_TOKEN_EXPIRATION] = director_token_expiry
