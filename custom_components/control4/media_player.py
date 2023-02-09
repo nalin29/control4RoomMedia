@@ -199,6 +199,7 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
             device_model="Control4 Room",
             device_id=idx,
         )
+        self._attr_device_class = MediaPlayerDeviceClass.SPEAKER
         self._attr_entity_registry_enabled_default = not room_hidden
         self._id_to_parent = id_to_parent
         self._sources = sources
@@ -234,11 +235,11 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
     def _get_current_playing_device_id(self) -> int | None:
         return self._get_device_from_variable(CONTROL4_PLAYING_AUDIO_DEVICE)
 
-    def _get_current_audio_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_AUDIO_DEVICE)
+    """ def _get_current_audio_device_id(self) -> int | None:
+        return self._get_device_from_variable(CONTROL4_CURRENT_AUDIO_DEVICE) """
 
-    def _get_current_video_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_VIDEO_DEVICE)
+    """ def _get_current_video_device_id(self) -> int | None:
+        return self._get_device_from_variable(CONTROL4_CURRENT_VIDEO_DEVICE) """
 
     def _get_current_source_state(self) -> str | None:
         current_source = self._get_current_playing_device_id()
@@ -283,8 +284,8 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         current_source = self._get_current_playing_device_id()
         if not current_source:
             return None
-        if current_source == self._get_current_video_device_id():
-            return MediaType.MOVIE
+        """ if current_source == self._get_current_video_device_id():
+            return MediaType.MOVIE """
         return MediaType.MUSIC
 
     async def async_media_play_pause(self):
