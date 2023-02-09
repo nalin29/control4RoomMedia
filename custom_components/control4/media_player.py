@@ -368,3 +368,8 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         """Issue a play command."""
         await self._create_api_object().setPlay()
         await self.coordinator.async_request_refresh()
+
+    async def async_media_stop(self):
+        """Issue a stop command."""
+        await self._create_api_object().setStop()
+        await self.coordinator.async_request_refresh()
