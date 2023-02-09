@@ -9,12 +9,12 @@ import attr
 from pyControl4.error_handling import C4Exception
 from pyControl4.room import C4Room
 
-from homeassistant.components.media_player import ( 
+from homeassistant.components.media_player import (
     MediaPlayerEntity,
     MediaPlayerState,
     MediaPlayerEntityFeature,
     MediaPlayerDeviceClass,
-    MediaType
+    MediaType,
 )
 
 from homeassistant.config_entries import ConfigEntry
@@ -48,9 +48,6 @@ VARIABLES_OF_INTEREST = {
     CONTROL4_VOLUME_STATE,
     CONTROL4_MUTED_STATE,
     CONTROL4_PLAYING_AUDIO_DEVICE,
-#    CONTROL4_CURRENT_AUDIO_DEVICE,
-#    CONTROL4_CURRENT_VIDEO_DEVICE,
-#    CONTROL4_CURRENT_SELECTED_DEVICE,
     CONTROL4_PLAYING,
     CONTROL4_PAUSED,
     CONTROL4_STOPPED,
@@ -235,12 +232,6 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
     def _get_current_playing_device_id(self) -> int | None:
         return self._get_device_from_variable(CONTROL4_PLAYING_AUDIO_DEVICE)
 
-    """ def _get_current_audio_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_AUDIO_DEVICE) """
-
-    """ def _get_current_video_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_VIDEO_DEVICE) """
-
     def _get_current_source_state(self) -> str | None:
         current_source = self._get_current_playing_device_id()
         while current_source:
@@ -277,7 +268,7 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         if not current_source or current_source not in self._sources:
             return None
         return self._sources[current_source].name
-    
+
     @property
     def media_title(self) -> str | None:
         """Get the Media Title."""
@@ -292,8 +283,6 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         current_source = self._get_current_playing_device_id()
         if not current_source:
             return None
-        """ if current_source == self._get_current_video_device_id():
-            return MediaType.MOVIE """
         return MediaType.MUSIC
 
     async def async_media_play_pause(self):
