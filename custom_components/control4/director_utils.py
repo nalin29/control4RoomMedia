@@ -1,7 +1,7 @@
 """Provides data updates from the Control4 controller for platforms."""
 from collections import defaultdict
+from collections.abc import Sequence
 import logging
-from typing import DefaultDict, Sequence, Union
 
 from pyControl4.account import C4Account
 from pyControl4.director import C4Director
@@ -23,35 +23,16 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 
-async def director_update_data(
-    hass: HomeAssistant, entry: ConfigEntry, var: str
-) -> dict:
-    """Retrieve data from the Control4 director for update_coordinator."""
-    # possibly implement usage of director_token_expiration to start
-    # token refresh without waiting for error to occur
-    try:
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getAllItemVariableValue(var)
-    except BadToken:
-        _LOGGER.info("Updating Control4 director token")
-        await refresh_tokens(hass, entry)
-        director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
-        data = await director.getAllItemVariableValue(var)
-    return {key["id"]: key for key in data}
-
-
 async def update_variables_for_entity(
     hass: HomeAssistant, entry: ConfigEntry, variable_names: Sequence[str]
-) -> dict[int, dict[str, Union[bool, int, str, dict]]]:
+) -> dict[int, dict[str, bool | int | str | dict]]:
     """Retrieve data from the Control4 director for update_coordinator."""
-    # possibly implement usage of director_token_expiration to start
-    # token refresh without waiting for error to occur
     try:
         director = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR]
         data = await director.getAllItemVariableValue(variable_names)
-        result_dict: DefaultDict[
-            int, dict[str, Union[bool, int, str, dict]]
-        ] = defaultdict(dict)
+        result_dict: defaultdict[int, dict[str, bool | int | str | dict]] = defaultdict(
+            dict
+        )
         for item in data:
             typ = item.get("type", None)
             value = item["value"]

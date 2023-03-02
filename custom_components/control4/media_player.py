@@ -10,13 +10,12 @@ from pyControl4.error_handling import C4Exception
 from pyControl4.room import C4Room
 
 from homeassistant.components.media_player import (
-    MediaPlayerEntity,
-    MediaPlayerState,
-    MediaPlayerEntityFeature,
     MediaPlayerDeviceClass,
+    MediaPlayerEntity,
+    MediaPlayerEntityFeature,
+    MediaPlayerState,
     MediaType,
 )
-
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_SCAN_INTERVAL
 from homeassistant.core import HomeAssistant
@@ -47,7 +46,10 @@ VARIABLES_OF_INTEREST = {
     CONTROL4_POWER_STATE,
     CONTROL4_VOLUME_STATE,
     CONTROL4_MUTED_STATE,
-    CONTROL4_PLAYING_AUDIO_DEVICE,
+    CONTROL4_CURRENT_SELECTED_DEVICE,
+    CONTROL4_CURRENT_VIDEO_DEVICE,
+    CONTROL4_CURRENT_AUDIO_DEVICE,
+    CONTROL4_MEDIA_INFO,
     CONTROL4_PLAYING,
     CONTROL4_PAUSED,
     CONTROL4_STOPPED,
@@ -61,7 +63,7 @@ class _SourceType(enum.Enum):
 
 @attr.s
 class RoomSource:
-    """Error during condition evaluation."""
+    """Room Source Data."""
 
     source_type: set[_SourceType] = attr.ib()
     id: int = attr.ib()
@@ -173,7 +175,7 @@ async def async_setup_entry(
 
 
 class Control4Room(Control4Entity, MediaPlayerEntity):
-    """Control4 light entity."""
+    """Control4 Room entity."""
 
     def __init__(
         self,
@@ -191,12 +193,11 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
             coordinator,
             name,
             idx,
-            device_name=f"Control4 Room - {name}",
-            device_manufacturer="Control4",
-            device_model="Control4 Room",
+            device_name=None,
+            device_manufacturer=None,
+            device_model=None,
             device_id=idx,
         )
-        self._attr_device_class = MediaPlayerDeviceClass.SPEAKER
         self._attr_entity_registry_enabled_default = not room_hidden
         self._id_to_parent = id_to_parent
         self._sources = sources
@@ -211,12 +212,10 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
             | MediaPlayerEntityFeature.TURN_OFF
             | MediaPlayerEntityFeature.TURN_ON
             | MediaPlayerEntityFeature.SELECT_SOURCE
-            | MediaPlayerEntityFeature.GROUPING
         )
 
     def _create_api_object(self):
-        """
-        Create a pyControl4 device object.
+        """Create a pyControl4 device object.
 
         This exists so the director token used is always the latest one, without needing to re-init the entire entity.
         """
@@ -229,8 +228,30 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
 
         return current_device
 
+    def _get_current_device_id(self) -> int | None:
+        return self._get_device_from_variable(CONTROL4_CURRENT_SELECTED_DEVICE)
+
+    def _get_current_audio_device_id(self) -> int | None:
+        return self._get_device_from_variable(CONTROL4_CURRENT_AUDIO_DEVICE)
+
+    def _get_current_video_device_id(self) -> int | None:
+        return self._get_device_from_variable(CONTROL4_CURRENT_VIDEO_DEVICE)
+
     def _get_current_playing_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_PLAYING_AUDIO_DEVICE)
+        media_info = self._get_media_info()
+        if media_info:
+            if "medSrcDev" in media_info:
+                return int(media_info["medSrcDev"])
+            if "deviceid" in media_info:
+                return int(media_info["deviceid"])
+        return 0
+
+    def _get_media_info(self) -> dict | None:
+        """Get the Media Info Dictionary if populated."""
+        media_info = self.coordinator.data[self._idx][CONTROL4_MEDIA_INFO]
+        if "mediainfo" in media_info:
+            return media_info["mediainfo"]
+        return None
 
     def _get_current_source_state(self) -> str | None:
         current_source = self._get_current_playing_device_id()
@@ -245,6 +266,14 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
                     return MediaPlayerState.ON
             current_source = self._id_to_parent.get(current_source, None)
         return None
+
+    @property
+    def device_class(self) -> MediaPlayerDeviceClass | None:
+        """Return the class of this entity."""
+        for avail_source in self._sources.values():
+            if _SourceType.VIDEO in avail_source.source_type:
+                return MediaPlayerDeviceClass.TV
+        return MediaPlayerDeviceClass.SPEAKER
 
     @property
     def state(self):
@@ -272,6 +301,11 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
     @property
     def media_title(self) -> str | None:
         """Get the Media Title."""
+        media_info = self._get_media_info()
+        if not media_info:
+            return None
+        if "title" in media_info:
+            return media_info["title"]
         current_source = self._get_current_playing_device_id()
         if not current_source or current_source not in self._sources:
             return None
@@ -283,11 +317,12 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         current_source = self._get_current_playing_device_id()
         if not current_source:
             return None
+        if current_source == self._get_current_video_device_id():
+            return MediaType.VIDEO
         return MediaType.MUSIC
 
     async def async_media_play_pause(self):
-        """
-        If possible, toggle the current play/pause state.
+        """If possible, toggle the current play/pause state.
 
         Not every source supports play/pause.
         Unfortunately MediaPlayer capabilities are not dynamic,
@@ -316,9 +351,12 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         for avail_source in self._sources.values():
             if avail_source.name == source:
                 audio_only = _SourceType.VIDEO not in avail_source.source_type
-                await self._create_api_object().setSource(
-                    avail_source.id, audio_only=audio_only
-                )
+                if audio_only:
+                    await self._create_api_object().setAudioSource(avail_source.id)
+                else:
+                    await self._create_api_object().setVideoAndAudioSource(
+                        avail_source.id
+                    )
                 break
 
         await self.coordinator.async_request_refresh()
@@ -338,7 +376,10 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
 
     async def async_mute_volume(self, mute):
         """Mute the room."""
-        await self._create_api_object().setMute(mute)
+        if mute:
+            await self._create_api_object().setMuteOn()
+        else:
+            await self._create_api_object().setMuteOff()
         await self.coordinator.async_request_refresh()
 
     async def async_set_volume_level(self, volume):
@@ -348,12 +389,12 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
 
     async def async_volume_up(self):
         """Increase the volume by 1."""
-        await self._create_api_object().setIncrementOrDecrementVolume(increase=True)
+        await self._create_api_object().setIncrementVolume()
         await self.coordinator.async_request_refresh()
 
     async def async_volume_down(self):
         """Decrease the volume by 1."""
-        await self._create_api_object().setIncrementOrDecrementVolume(increase=False)
+        await self._create_api_object().setDecrementVolume()
         await self.coordinator.async_request_refresh()
 
     async def async_media_pause(self):
