@@ -35,7 +35,6 @@ from .const import (
     CONF_DIRECTOR_ALL_ITEMS,
     CONF_DIRECTOR_MODEL,
     CONF_DIRECTOR_SW_VERSION,
-    CONF_DIRECTOR_TOKEN_EXPIRATION,
     CONF_UI_CONFIGURATION,
     DEFAULT_SCAN_INTERVAL,
     DOMAIN,
@@ -80,9 +79,6 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         config[CONF_HOST], director_token_dict[CONF_TOKEN], director_session
     )
     entry_data[CONF_DIRECTOR] = director
-    entry_data[CONF_DIRECTOR_TOKEN_EXPIRATION] = director_token_dict[
-        CONF_DIRECTOR_TOKEN_EXPIRATION
-    ]
 
     # Add Control4 controller to device registry
     controller_href = (await account.getAccountControllers())["href"]
@@ -170,7 +166,7 @@ class Control4Entity(CoordinatorEntity):
         self.entry_data = entry_data
         self._attr_name = name
         self._attr_unique_id = str(idx)
-        self._idx = int(idx)
+        self._idx = idx
         self._controller_unique_id = entry_data[CONF_CONTROLLER_UNIQUE_ID]
         self._device_name = device_name
         self._device_manufacturer = device_manufacturer

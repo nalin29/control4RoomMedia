@@ -24,17 +24,14 @@ from homeassistant.helpers.update_coordinator import DataUpdateCoordinator, Upda
 
 from . import Control4Entity
 from .const import CONF_DIRECTOR, CONF_DIRECTOR_ALL_ITEMS, CONF_UI_CONFIGURATION, DOMAIN
-from .director_utils import update_variables_for_entity
+from .director_utils import update_variables_for_config_entry
 
 _LOGGER = logging.getLogger(__name__)
 
 CONTROL4_POWER_STATE = "POWER_STATE"
 CONTROL4_VOLUME_STATE = "CURRENT_VOLUME"
 CONTROL4_MUTED_STATE = "IS_MUTED"
-CONTROL4_CURRENT_AUDIO_DEVICE = "CURRENT_AUDIO_DEVICE"
 CONTROL4_CURRENT_VIDEO_DEVICE = "CURRENT_VIDEO_DEVICE"
-CONTROL4_CURRENT_SELECTED_DEVICE = "CURRENT_SELECTED_DEVICE"
-CONTROL4_PLAYING_AUDIO_DEVICE = "PLAYING_AUDIO_DEVICE"
 CONTROL4_PLAYING = "PLAYING"
 CONTROL4_PAUSED = "PAUSED"
 CONTROL4_STOPPED = "STOPPED"
@@ -46,9 +43,7 @@ VARIABLES_OF_INTEREST = {
     CONTROL4_POWER_STATE,
     CONTROL4_VOLUME_STATE,
     CONTROL4_MUTED_STATE,
-    CONTROL4_CURRENT_SELECTED_DEVICE,
     CONTROL4_CURRENT_VIDEO_DEVICE,
-    CONTROL4_CURRENT_AUDIO_DEVICE,
     CONTROL4_MEDIA_INFO,
     CONTROL4_PLAYING,
     CONTROL4_PAUSED,
@@ -98,7 +93,9 @@ async def async_setup_entry(
     async def async_update_data():
         """Fetch data from Control4 director."""
         try:
-            return await update_variables_for_entity(hass, entry, VARIABLES_OF_INTEREST)
+            return await update_variables_for_config_entry(
+                hass, entry, VARIABLES_OF_INTEREST
+            )
         except C4Exception as err:
             raise UpdateFailed(f"Error communicating with API: {err}") from err
 
@@ -114,11 +111,11 @@ async def async_setup_entry(
     await coordinator.async_refresh()
 
     items_by_id = {
-        int(item["id"]): item
+        item["id"]: item
         for item in hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR_ALL_ITEMS]
     }
     item_to_parent_map = {
-        k: int(item["parentId"])
+        k: item["parentId"]
         for k, item in items_by_id.items()
         if "parentId" in item and k > 1
     }
@@ -127,11 +124,11 @@ async def async_setup_entry(
 
     entity_list = []
     for room in all_rooms:
-        room_id = int(room["id"])
+        room_id = room["id"]
 
         sources: dict[int, RoomSource] = {}
         for exp in ui_config["experiences"]:
-            if room_id == int(exp["room_id"]):
+            if room_id == exp["room_id"]:
                 exp_type = exp["type"]
                 if exp_type not in ("listen", "watch"):
                     continue
@@ -140,7 +137,7 @@ async def async_setup_entry(
                     _SourceType.AUDIO if exp_type == "listen" else _SourceType.VIDEO
                 )
                 for source in exp["sources"]["source"]:
-                    dev_id = int(source["id"])
+                    dev_id = source["id"]
                     name = items_by_id.get(dev_id, {}).get(
                         "name", f"Unknown Device - {dev_id}"
                     )
@@ -222,17 +219,11 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         return C4Room(self.entry_data[CONF_DIRECTOR], self._idx)
 
     def _get_device_from_variable(self, var: str) -> int | None:
-        current_device = int(self.coordinator.data[self._idx][var])
+        current_device = self.coordinator.data[self._idx][var]
         if current_device == 0:
             return None
 
         return current_device
-
-    def _get_current_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_SELECTED_DEVICE)
-
-    def _get_current_audio_device_id(self) -> int | None:
-        return self._get_device_from_variable(CONTROL4_CURRENT_AUDIO_DEVICE)
 
     def _get_current_video_device_id(self) -> int | None:
         return self._get_device_from_variable(CONTROL4_CURRENT_VIDEO_DEVICE)
@@ -241,9 +232,9 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         media_info = self._get_media_info()
         if media_info:
             if "medSrcDev" in media_info:
-                return int(media_info["medSrcDev"])
+                return media_info["medSrcDev"]
             if "deviceid" in media_info:
-                return int(media_info["deviceid"])
+                return media_info["deviceid"]
         return 0
 
     def _get_media_info(self) -> dict | None:
@@ -362,10 +353,12 @@ class Control4Room(Control4Entity, MediaPlayerEntity):
         await self.coordinator.async_request_refresh()
 
     def turn_on(self):
-        """Fake turn-on the room.  Actual power on occurs during source select."""
-        # We dont have any information about the previously selected source so we cannot "turn on" the room
-        # However, we need to trick HA into thinking the room is on in order to display the source list.
-        # Selecting a source will _actually_ turn on the system
+        """Fake turn-on the room.  Actual power on occurs during source select.
+
+        We dont have any information about the previously selected source so we cannot "turn on" the room
+        However, we need to trick HA into thinking the room is on in order to display the source list.
+        Selecting a source will _actually_ turn on the system.
+        """
         self._is_soft_on = True
 
     async def async_turn_off(self):

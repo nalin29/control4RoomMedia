@@ -10,7 +10,7 @@
     }
   ],
   "codeowners": ["@nalin29"],
-  "version": "1.2.0",
+  "version": "1.3.0",
   "iot_class": "local_polling",
   "integration_type": "hub",
   "loggers": ["pyControl4"]
