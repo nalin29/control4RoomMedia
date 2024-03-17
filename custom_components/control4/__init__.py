@@ -1,8 +1,10 @@
 """The Control4 integration."""
+
 from __future__ import annotations
 
 import json
 import logging
+from typing import Any
 
 from aiohttp import client_exceptions
 from pyControl4.account import C4Account
@@ -21,7 +23,7 @@ from homeassistant.const import (
 from homeassistant.core import HomeAssistant
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import aiohttp_client, device_registry as dr
-from homeassistant.helpers.entity import DeviceInfo
+from homeassistant.helpers.device_registry import DeviceInfo
 from homeassistant.helpers.update_coordinator import (
     CoordinatorEntity,
     DataUpdateCoordinator,
@@ -43,6 +45,8 @@ from .const import (
 _LOGGER = logging.getLogger(__name__)
 
 PLATFORMS = [Platform.LIGHT, Platform.MEDIA_PLAYER]
+
+API_RETRY_TMES = 5
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
@@ -72,19 +76,37 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     controller_unique_id = config[CONF_CONTROLLER_UNIQUE_ID]
     entry_data[CONF_CONTROLLER_UNIQUE_ID] = controller_unique_id
 
-    director_token_dict = await account.getDirectorBearerToken(controller_unique_id)
-    director_session = aiohttp_client.async_get_clientsession(hass, verify_ssl=False)
+    # Add retry for C4 Account API due to instability
+    for i in range(API_RETRY_TMES):
+        try:
+            director_token_dict = await account.getDirectorBearerToken(
+                controller_unique_id
+            )
+            break
+        except client_exceptions.ClientError as exception:
+            _LOGGER.error("Error connecting to Control4 account API: %s", exception)
+            if i == API_RETRY_TMES - 1:
+                raise ConfigEntryNotReady(exception) from exception
 
+    director_session = aiohttp_client.async_get_clientsession(hass, verify_ssl=False)
     director = C4Director(
         config[CONF_HOST], director_token_dict[CONF_TOKEN], director_session
     )
     entry_data[CONF_DIRECTOR] = director
 
-    # Add Control4 controller to device registry
-    controller_href = (await account.getAccountControllers())["href"]
-    entry_data[CONF_DIRECTOR_SW_VERSION] = await account.getControllerOSVersion(
-        controller_href
-    )
+    # Add retry for C4 Account API due to instability
+    for i in range(API_RETRY_TMES):
+        try:
+            # Add Control4 controller to device registry
+            controller_href = (await account.getAccountControllers())["href"]
+            entry_data[CONF_DIRECTOR_SW_VERSION] = await account.getControllerOSVersion(
+                controller_href
+            )
+            break
+        except client_exceptions.ClientError as exception:
+            _LOGGER.error("Error connecting to Control4 account API: %s", exception)
+            if i == API_RETRY_TMES - 1:
+                raise ConfigEntryNotReady(exception) from exception
 
     _, model, mac_address = controller_unique_id.split("_", 3)
     entry_data[CONF_DIRECTOR_MODEL] = model.upper()
@@ -140,20 +162,20 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def get_items_of_category(hass: HomeAssistant, entry: ConfigEntry, category: str):
     """Return a list of all Control4 items with the specified category."""
     director_all_items = hass.data[DOMAIN][entry.entry_id][CONF_DIRECTOR_ALL_ITEMS]
-    return_list = []
-    for item in director_all_items:
-        if "categories" in item and category in item["categories"]:
-            return_list.append(item)
-    return return_list
+    return [
+        item
+        for item in director_all_items
+        if "categories" in item and category in item["categories"]
+    ]
 
 
-class Control4Entity(CoordinatorEntity):
+class Control4Entity(CoordinatorEntity[Any]):
     """Base entity for Control4."""
 
     def __init__(
         self,
         entry_data: dict,
-        coordinator: DataUpdateCoordinator,
+        coordinator: DataUpdateCoordinator[Any],
         name: str,
         idx: int,
         device_name: str | None,
